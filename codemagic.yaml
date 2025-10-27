@@ -20,11 +20,16 @@ workflows:
 
         
 
-    artifacts:
-      - build/ios/iphoneos/*.app
-      - build/ios/iphoneos/*.ipa
+artifacts:
+  - build/ios/iphoneos/*.ipa
+  - build/ios/iphoneos/*.app
+  - build/ios/ipa/*.ipa
+  - build/**/outputs/**/*.apk
+
 
     publishing:
       email:
         recipients:
           - frank.le.febre@rws.nl
+          
+          
