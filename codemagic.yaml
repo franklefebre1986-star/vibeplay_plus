@@ -5,31 +5,15 @@ workflows:
     environment:
       flutter: stable
       xcode: latest
-      vars:
-        BUILD_DIR: build/ios/iphoneos
     scripts:
       - name: Install dependencies
         script: |
           flutter pub get
       - name: Build iOS (unsigned)
         script: |
-          flutter clean
-          flutter pub get
-          export CODE_SIGNING_ALLOWED=NO
           flutter build ios --release --no-codesign
-
-        
-
-artifacts:
-  - build/ios/iphoneos/*.ipa
-  - build/ios/iphoneos/*.app
-  - build/ios/ipa/*.ipa
-  - build/**/outputs/**/*.apk
-
-
-    publishing:
-      email:
-        recipients:
-          - frank.le.febre@rws.nl
-          
-          
+    artifacts:
+      - build/ios/iphoneos/*.ipa
+      - build/ios/iphoneos/*.app
+      - build/ios/ipa/*.ipa
+      - build/**/outputs/**/*.apk
