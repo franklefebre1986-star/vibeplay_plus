@@ -5,6 +5,7 @@ workflows:
     environment:
       flutter: stable
       xcode: latest
+
     scripts:
       - name: Install dependencies
         script: |
@@ -16,5 +17,13 @@ workflows:
           cp -r build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
           cd build/ios/ipa
           zip -r VibePlayPlus.ipa Payload
+
     artifacts:
       - build/ios/ipa/VibePlayPlus.ipa
+      - build/ios/ipa/VibePlayPlus_unsigned.ipa
+
+    publishing:
+      scripts:
+        - echo "Saving unsigned IPA"
+        - mkdir -p build/ios/ipa
+        - mv build/ios/iphoneos/*.ipa build/ios/ipa/VibePlayPlus_unsigned.ipa
