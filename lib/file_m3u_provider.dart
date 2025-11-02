@@ -46,7 +46,7 @@ class FileM3UProvider {
         if (title != null) {
           entries.add(M3UEntry(
             title: title,
-            streamUrl: line.trim(),
+            url: line.trim(),
             logoUrl: logo,
             country: country,
           ));

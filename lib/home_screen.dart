@@ -1,46 +1,40 @@
 import 'package:flutter/material.dart';
-import 'm3u_provider.dart' as net;
-import 'file_m3u_provider.dart' as local;
-import 'player_screen.dart';
-import 'models/m3u_entry.dart';
-import 'utils/logo_resolver.dart';
+import 'package:mijn_iptv_app/m3u_provider.dart';
+import 'package:mijn_iptv_app/models/m3u_entry.dart';
+import 'package:mijn_iptv_app/player_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  final String? m3uUrl;
-  const HomeScreen({super.key, this.m3uUrl});
+  final String m3uUrl;
+
+  const HomeScreen({Key? key, required this.m3uUrl}) : super(key: key);
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  bool _loading = false;
   List<M3UEntry> _channels = [];
-
-  Future<void> _loadFromInternet() async {
-    if (widget.m3uUrl == null) return;
-    setState(() => _loading = true);
-    final channels = await net.M3UProvider.loadM3U(widget.m3uUrl!);
-    setState(() {
-      _channels = channels;
-      _loading = false;
-    });
-  }
-
-  Future<void> _loadFromFile() async {
-    setState(() => _loading = true);
-    final channels = await local.FileM3UProvider.pickAndParse();
-    setState(() {
-      _channels = channels;
-      _loading = false;
-    });
-  }
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    if (widget.m3uUrl != null) {
-      _loadFromInternet();
+    _loadChannels();
+  }
+
+  Future<void> _loadChannels() async {
+    try {
+      final data = await M3UProvider.loadM3U(widget.m3uUrl);
+      setState(() {
+        _channels = data;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
     }
   }
 
@@ -49,103 +43,94 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text(
-          "VibePlay+",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: Colors.black,
+        title: const Text('VibePlay+'),
+        backgroundColor: Colors.red.shade800,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: _loadFromInternet,
-          ),
-          IconButton(
-            icon: const Icon(Icons.folder_open, color: Colors.white),
-            tooltip: "Laad lokaal M3U-bestand",
-            onPressed: _loadFromFile,
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadChannels,
           ),
         ],
       ),
       body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: Colors.redAccent),
-            )
-          : _channels.isEmpty
-              ? const Center(
+          ? const Center(child: CircularProgressIndicator(color: Colors.red))
+          : _error != null
+              ? Center(
                   child: Text(
-                    "Geen kanalen gevonden 😢",
-                    style: TextStyle(color: Colors.white, fontSize: 16),
+                    _error!,
+                    style: const TextStyle(color: Colors.red, fontSize: 16),
+                    textAlign: TextAlign.center,
                   ),
                 )
-              : GridView.builder(
-                  padding: const EdgeInsets.all(8),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                    mainAxisSpacing: 8,
-                    crossAxisSpacing: 8,
-                    childAspectRatio: 1,
-                  ),
-                  itemCount: _channels.length,
-                  itemBuilder: (context, i) {
-                    final ch = _channels[i];
-
-                    return GestureDetector(
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => PlayerScreen(
-                            streamUrl: ch.streamUrl,
-                            title: ch.title,
-                          ),
-                        ),
+              : _channels.isEmpty
+                  ? const Center(
+                      child: Text(
+                        "Geen kanalen gevonden 😢",
+                        style: TextStyle(color: Colors.white),
                       ),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.grey[900],
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              child: FutureBuilder<Widget>(
-                                future: LogoResolver.buildLogo(
+                    )
+                  : GridView.builder(
+                      padding: const EdgeInsets.all(8),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 4,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
+                        childAspectRatio: 1.1,
+                      ),
+                      itemCount: _channels.length,
+                      itemBuilder: (context, index) {
+                        final ch = _channels[index];
+                        return InkWell(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => PlayerScreen(
+                                  channelName: ch.title,
+                                  streamUrl: ch.streamUrl, // ✅ FIXED
+                                  logoUrl: ch.logoUrl,
+                                ),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.grey[900],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                if (ch.logoUrl != null &&
+                                    ch.logoUrl!.isNotEmpty)
+                                  Image.network(
+                                    ch.logoUrl!,
+                                    height: 60,
+                                    errorBuilder: (_, __, ___) =>
+                                        const Icon(Icons.tv,
+                                            color: Colors.grey, size: 40),
+                                  )
+                                else
+                                  const Icon(Icons.tv,
+                                      color: Colors.grey, size: 40),
+                                const SizedBox(height: 8),
+                                Text(
                                   ch.title,
-                                  country: ch.country,
-                                  size: 60,
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
                                 ),
-                                builder: (context, snapshot) {
-                                  if (snapshot.connectionState ==
-                                          ConnectionState.done &&
-                                      snapshot.hasData) {
-                                    return snapshot.data!;
-                                  }
-                                  return const Icon(
-                                    Icons.tv,
-                                    color: Colors.white54,
-                                    size: 50,
-                                  );
-                                },
-                              ),
+                              ],
                             ),
-                            Padding(
-                              padding: const EdgeInsets.all(4.0),
-                              child: Text(
-                                ch.title,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
+                          ),
+                        );
+                      },
+                    ),
     );
   }
 }

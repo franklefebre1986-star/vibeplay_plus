@@ -9,10 +9,19 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  http: ^0.13.6
-  # voeg andere packages die je gebruikt toe (video_player, shared_preferences) indien nodig
-  shared_preferences: ^2.1.1
-  video_player: ^2.5.1
+
+  # 🌍 Netwerk & opslag
+  http: ^1.2.2
+  shared_preferences: ^2.3.2
+
+  # 🎥 Videoplayer
+  video_player: ^2.9.1
+
+  # 📺 Chromecast (alleen actief buiten web)
+  cast: ^2.1.0
+
+  # ⚙️ Stabiliteit
+  video_player_platform_interface: ^6.6.0
 
 dev_dependencies:
   flutter_test:
@@ -24,4 +33,4 @@ flutter:
 
   assets:
     - assets/logos.json
-    - assets/logos/    # zorg dat alle logo-bestanden onder assets/logos/ staan (recursief)
+    - assets/logos/

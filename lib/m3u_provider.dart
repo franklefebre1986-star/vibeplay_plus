@@ -1,69 +1,87 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'models/m3u_entry.dart';
 
 class M3UProvider {
+  /// 🧩 Laadt en parse't een M3U playlist (met fallback & proxy)
   static Future<List<M3UEntry>> loadM3U(String url) async {
-    final response = await http.get(Uri.parse(url));
-    if (response.statusCode != 200) {
-      throw Exception("❌ M3U download mislukt (${response.statusCode})");
-    }
-
-    // ✅ Probeer UTF-8, anders fallback naar Windows-1252
-    String body;
     try {
-      body = utf8.decode(response.bodyBytes);
-    } catch (_) {
-      body = latin1.decode(response.bodyBytes);
-    }
+      // ✅ Voeg CORS proxy toe op web
+      if (kIsWeb && !url.startsWith('https://corsproxy.io/?')) {
+        url = 'https://corsproxy.io/?${Uri.encodeComponent(url)}';
+      }
 
-    // ✅ Verwijder vreemde karakters
-    body = body
-        .replaceAll(RegExp(r'[^\x00-\x7F]+'), '')
-        .replaceAll('â', "'")
-        .replaceAll('â', '-')
-        .replaceAll('Ã©', 'é')
-        .replaceAll('Ã', 'A');
+      final headers = {
+        'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+                '(KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+        'Accept': '*/*',
+        'Connection': 'keep-alive',
+      };
+
+      // ⏳ Eerste poging
+      final response =
+          await http.get(Uri.parse(url), headers: headers).timeout(
+                const Duration(seconds: 10),
+                onTimeout: () => http.Response('Timeout', 408),
+              );
+
+      if (response.statusCode != 200) {
+        // 🔁 Tweede poging met TS fallback
+        if (url.contains('output=m3u8')) {
+          final fallbackUrl = url.replaceAll('output=m3u8', 'output=ts');
+          final retry = await http
+              .get(Uri.parse(fallbackUrl), headers: headers)
+              .timeout(const Duration(seconds: 10),
+                  onTimeout: () => http.Response('Timeout', 408));
+
+          if (retry.statusCode == 200) {
+            return _parseM3U(retry.bodyBytes);
+          }
+        }
+        throw Exception('Serverfout (${response.statusCode})');
+      }
+
+      return _parseM3U(response.bodyBytes);
+    } catch (e) {
+      throw Exception("Fout bij laden: $e");
+    }
+  }
+
+  /// 📄 Parse helper
+  static List<M3UEntry> _parseM3U(List<int> bytes) {
+    final body = utf8.decode(bytes);
+    if (!body.contains("#EXTM3U")) {
+      throw Exception("Geen geldige M3U-link gevonden.");
+    }
 
     final lines = const LineSplitter().convert(body);
     final entries = <M3UEntry>[];
-
     String? title;
     String? logo;
-    String? country;
 
     for (final line in lines) {
-      if (line.startsWith('#EXTINF:')) {
-        final info = line.split(',');
-        title = _cleanTitle(info.last.trim());
-
-        final logoMatch = RegExp(r'tvg-logo="([^"]+)"').firstMatch(line);
-        final countryMatch = RegExp(r'tvg-country="([^"]+)"').firstMatch(line);
-
+      if (line.startsWith("#EXTINF")) {
+        final nameMatch = RegExp(r'tvg-name="(.*?)"').firstMatch(line);
+        final logoMatch = RegExp(r'tvg-logo="(.*?)"').firstMatch(line);
+        title = nameMatch?.group(1) ?? line.split(",").last.trim();
         logo = logoMatch?.group(1);
-        country = countryMatch?.group(1);
-      } else if (line.startsWith('http')) {
-        if (title != null && title.isNotEmpty) {
-          entries.add(M3UEntry(
-            title: title,
-            streamUrl: line.trim(),
-            logoUrl: logo,
-            country: country,
-          ));
-        }
-        title = logo = country = null;
+      } else if (line.startsWith("http")) {
+        entries.add(M3UEntry(
+          title: title ?? "Onbekend kanaal",
+          logoUrl: logo,
+          streamUrl: line.trim(),
+        ));
+        title = null;
+        logo = null;
       }
     }
 
-    return entries;
-  }
+    if (entries.isEmpty) {
+      throw Exception("Geen kanalen gevonden in M3U.");
+    }
 
-  /// 🧠 Slimme titelopschoning
-  static String _cleanTitle(String title) {
-    return title
-        .replaceAll(RegExp(r'16K|8K|4K|2K|HD|FHD|UHD|SD|NL|BE|DE', caseSensitive: false), '')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .replaceAll('|', '')
-        .trim();
+    return entries;
   }
 }

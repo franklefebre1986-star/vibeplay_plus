@@ -2,21 +2,19 @@ import 'package:flutter/material.dart';
 import 'splash_screen.dart';
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MyApp());
+  runApp(const VibePlayApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class VibePlayApp extends StatelessWidget {
+  const VibePlayApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'VibePlay+',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: Colors.black,
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.redAccent),
+      theme: ThemeData.dark(useMaterial3: true).copyWith(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.red),
       ),
       home: const SplashScreen(),
     );
